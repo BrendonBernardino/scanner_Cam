@@ -1,0 +1,24 @@
+﻿  main.cpp
+C:\Users\P1nkLemonade_01\Documents\scannerCam\scannerCam\main.cpp(49,12): warning C4244: 'inicializando': conversão de 'double' para 'int', possível perda de dados
+C:\Users\P1nkLemonade_01\Documents\scannerCam\scannerCam\main.cpp(55,15): warning C4244: 'inicializando': conversão de 'double' para 'float', possível perda de dados
+C:\Users\P1nkLemonade_01\Documents\scannerCam\scannerCam\main.cpp(101,53): warning C4244: 'argumento': conversão de 'float' para '_Tp', possível perda de dados
+          with
+          [
+              _Tp=int
+          ]
+C:\Users\P1nkLemonade_01\Documents\scannerCam\scannerCam\main.cpp(101,50): warning C4244: 'argumento': conversão de 'float' para '_Tp', possível perda de dados
+          with
+          [
+              _Tp=int
+          ]
+C:\Users\P1nkLemonade_01\Documents\scannerCam\scannerCam\main.cpp(163,59): warning C4244: 'argumento': conversão de 'float' para '_Tp', possível perda de dados
+          with
+          [
+              _Tp=int
+          ]
+C:\Users\P1nkLemonade_01\Documents\scannerCam\scannerCam\main.cpp(163,56): warning C4244: 'argumento': conversão de 'float' para '_Tp', possível perda de dados
+          with
+          [
+              _Tp=int
+          ]
+  scannerCam.vcxproj -> C:\Users\P1nkLemonade_01\Documents\scannerCam\x64\Debug\scannerCam.exe
