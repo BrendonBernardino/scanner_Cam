@@ -2,24 +2,26 @@
 
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
+//#include <opencv2/imgcodecs.hpp>
+//#include <opencv2/highgui.hpp>
+//#include <opencv2/imgproc.hpp>
+#include <vector>
 
 using namespace cv;
 using namespace std;
 
-Mat img_orig, img_gray, img_gray2, img_canny, img_blur, img_dil, img_erode, img_pp, img_warp, img_crop, img_scan, img_scanned;
+Mat img_orig, img_scan;
 vector<Point> initialPoints, docsPoints;
 float w = 420, h = 596;
 
 Mat pre_processamento(Mat img) {
+	Mat img_gray, img_canny, img_blur, img_dil, img_erode;
 	cvtColor(img, img_gray, COLOR_BGR2GRAY);
-	//imshow("Imagem cinza", img_gray);
+	imshow("Gray", img_gray);
 	GaussianBlur(img_gray, img_blur, Size(3, 3), 3, 0);
-	//imshow("Imagem Blur", img_blur);
+	imshow("Blur", img_blur);
 	Canny(img_blur, img_canny, 25, 75);
-	//imshow("Imagem canny", img_canny);
+	imshow("Canny", img_canny);
 
 	Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
 	dilate(img_canny, img_dil, kernel);
@@ -27,9 +29,11 @@ Mat pre_processamento(Mat img) {
 	return img_dil;
 }
 
-Mat pre_processamento2(Mat img) {
+Mat scanner_processing(Mat img) {
+	Mat img_gray2;
 	cvtColor(img, img_gray2, COLOR_BGR2GRAY);
-	adaptiveThreshold(img_gray2, img_scan, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 9, 2);//ADAPTIVE_THRESH_MEAN_C
+	imshow("adaptative threshold", img_gray2);
+	adaptiveThreshold(img_gray2, img_scan, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 11, 2);//ADAPTIVE_THRESH_MEAN_C
 	return img_scan;
 }
 
@@ -47,7 +51,7 @@ vector<Point> getContours(Mat img) {
 
 	for (int i = 0; i < contours.size(); i++) {
 		int area = contourArea(contours[i]);
-		cout << area << endl;
+		//cout << area << endl;
 
 		string objectType;
 
@@ -58,6 +62,7 @@ vector<Point> getContours(Mat img) {
 			if(area > maxArea && conPoly[i].size() == 4) {
 				//drawContours(img_orig, conPoly, i, Scalar(0, 255, 0), 3);
 				biggest = { conPoly[i][0], conPoly[i][1], conPoly[i][2], conPoly[i][3] };
+				cout << biggest[i] << endl;
 				maxArea = area;
 			}
 
@@ -68,10 +73,10 @@ vector<Point> getContours(Mat img) {
 	return biggest;
 }
 
-void drawPoints(vector<Point> points, Scalar color) {
+void drawPoints(vector<Point> points, Scalar color, Mat img) {
 	for (int i = 0; i < points.size(); i++) {
-		circle(img_orig, points[i], 8, color, FILLED);
-		putText(img_orig, to_string(i), points[i], FONT_HERSHEY_PLAIN, 2, color, 2);
+		circle(img, points[i], 8, color, FILLED);
+		putText(img, to_string(i), points[i], FONT_HERSHEY_PLAIN, 2, color, 2);
 	}
 }
 
@@ -98,13 +103,50 @@ Mat getWarp(Mat img, vector<Point> points, float w, float h) {
 	Point2f dst[4] = { {0.0f, 0.0f}, {w, 0.0f}, {0.0f, h}, {w, h} };
 
 	Mat matrix = getPerspectiveTransform(src, dst);
-	warpPerspective(img, img_scanned, matrix, Point(w, h));
+	warpPerspective(img, img_scanned, matrix, Point2i(w, h));
+
+	return img_scanned;
+}
+
+Mat processing(Mat src) {
+	//Mat src;
+	//capture >> src;
+	//src = imread(img);
+	Mat img_pp, img_warp, img_crop, img_scanned;
+	vector<Point> initialPoints, docsPoints;
+
+	int cropVal = 5;
+
+	//resize(src, src, Size(), 0.5, 0.5);
+
+	img_pp = pre_processamento(src);
+
+	initialPoints = getContours(img_pp);
+	//drawPoints(initialPoints, Scalar(0, 0, 255), src);
+	docsPoints = reorder(initialPoints);
+	Mat src2 = src;
+	//drawPoints(docsPoints, Scalar(0, 0, 255), src2);
+
+	img_warp = getWarp(src, docsPoints, w, h);
+
+	Rect roi(cropVal, cropVal, w - (2 * 3), h - (2 * 5));
+	img_crop = img_warp(roi);
+	resize(img_crop, img_crop, Size(), 0.5, 0.5);
+
+	img_scanned = scanner_processing(img_crop);
+
+	//imshow("Imagem enquadrada", src2);
+	imshow("Imagem Preproccessada", img_pp);
+	imshow("Imagem Cortada", img_crop);
+	imshow("Imagem Escaneada", img_scanned);
+	//imshow(janela_name, img_scanned);
 
 	return img_scanned;
 }
 
 void captureWebcam(Mat frame) {
 	VideoCapture cap(0);
+
 	string janela_name = "Webcam escaneada";
 
 	cap.set(3, 320);//640
@@ -121,7 +163,7 @@ void captureWebcam(Mat frame) {
 
 	while (true) {
 		cap >> frame;
-		cap.read(img_orig);
+		//cap.read(img_orig);
 		bool stateCam = cap.read(frame);
 		if (stateCam == false) {
 			cout << "Webcam foi desconectada" << endl;
@@ -129,33 +171,43 @@ void captureWebcam(Mat frame) {
 			break;
 		}
 
+		char tecla_print = waitKey(1);
+		if (tecla_print == 'p') {
+			imshow("Imagem print", frame);
+			img_scan = processing(frame);
+		}
 		//namedWindow(janela_name, WINDOW_NORMAL);
 
-		resize(img_orig, img_orig, Size(), 1, 1);
+		//resize(img_orig, img_orig, Size(), 1, 1);
 
-		img_pp = pre_processamento(img_orig);
+		//img_pp = pre_processamento(img_orig);
 
-		initialPoints = getContours(img_pp);
+		//initialPoints = getContours(img_pp);
+
+		//for (int j = 0; j < 4; j++) {
+		//	cout << initialPoints[j] << endl;
+		//}
+
 		//drawPoints(initialPoints, Scalar(0, 0, 255)); //pontos desordenados
 		//docsPoints = reorder(initialPoints);
 		//drawPoints(docsPoints, Scalar(0, 0, 255));
 		
-		img_warp = getWarp(img_orig, docsPoints, w, h);
+		//img_warp = getWarp(img_orig, docsPoints, w, h);
 
 		//int cropVal = 5;
 		//Rect roi(cropVal, cropVal, w - (2 * 5), h - (2 * 5));
 		//img_crop = img_warp(roi);
 
 		//img_scanned = pre_processamento2(img_crop);
-		imshow("Imagem pura", img_orig);
-		imshow("Imagem modify", img_pp);
-		imshow("Imagem warp", img_scanned);
+		//imshow("Imagem pura", img_orig);
+		imshow("Imagem real time", frame);
+		//imshow("Imagem warp", img_scanned);
 		//imshow("Imagem crop", img_crop);
 		//imshow(janela_name, img_scanned);
 
 
 		char tecla_press = waitKey(1)/* && 0xff*/;
-		if (tecla_press == 'p')
+		if (tecla_press == 'q')
 			break;
 	}
 
@@ -165,8 +217,38 @@ void captureWebcam(Mat frame) {
 
 int main() {
 	Mat frame;
-	//string imgPath = "C:\\Users\\P1nkLemonade_01\\Downloads\\Resources\\Resources\\7.jpg";//C:\\Users\\P1nkLemonade_01\\Downloads\\Resources\\Resources\\declaracao_de_vinculo.png
-	//img_orig = imread(imgPath);
+	string imgPath = "C:\\Users\\P1nkLemonade_01\\Downloads\\Resources\\Resources\\paper.jpg";//C:\\Users\\P1nkLemonade_01\\Downloads\\Resources\\Resources\\declaracao_de_vinculo.png
+	img_orig = imread(imgPath);
+
+	//img_scan = processing(img_orig);
+
+	//Mat img_pp, img_warp, img_crop, img_scanned;
+	//vector<Point> initialPoints, docsPoints;
+
+	//int cropVal = 5;
+
+	//resize(img_orig, img_orig, Size(), 0.5, 0.5);
+
+	//img_pp = pre_processamento(img_orig);
+
+	//initialPoints = getContours(img_pp);
+	////drawPoints(initialPoints, Scalar(0, 0, 255), img_orig);
+	//docsPoints = reorder(initialPoints);
+	////drawPoints(docsPoints, Scalar(0, 0, 255), img_orig);
+
+	//img_warp = getWarp(img_orig, docsPoints, w, h);
+
+	//Rect roi(cropVal, cropVal, w - (2 * 5), h - (2 * 5));
+	//img_crop = img_warp(roi);
+
+	//img_scanned = scanner_processing(img_crop);
+
+	//imshow("Imagem Pura", img_orig);
+	//imshow("Imagem Preproccessada", img_pp);
+	//imshow("Imagem Cortada", img_crop);
+	//imshow("Imagem Escaneada", img_scanned);
+	//imshow(janela_name, img_scanned);
+
 
 	captureWebcam(frame);
 	//waitKey();
